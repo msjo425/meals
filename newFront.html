@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Meal Planner</title>
+    <style>
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tile {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            cursor: grab;
+            margin-bottom: 5px;
+        }
+        .day {
+            border: 1px solid #ddd;
+            padding: 20px;
+            min-height: 100px;
+            background-color: #fafafa;
+            text-align: center;
+        }
+        .day h3 {
+            margin: 0 0 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="calendar" id="calendar">
+        <!-- Days of the week will be dynamically added here -->
+    </div>
+
+    <div id="tiles">
+        <!-- Meal tiles will be dynamically added here -->
+    </div>
+
+    <script>
+        // Function to get the next 5 calendar dates
+        function getNextFiveDays() {
+            const days = [];
+            for (let i = 0; i < 5; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() + i);
+                days.push({
+                    date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+                    display: date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+                });
+            }
+            return days;
+        }
+
+        // Render the next 5 days
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            const days = getNextFiveDays();
+            days.forEach(day => {
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('day');
+                dayDiv.dataset.date = day.date;
+                dayDiv.innerHTML = `<h3>${day.display}</h3>`;
+                calendar.appendChild(dayDiv);
+
+                dayDiv.addEventListener('dragover', (event) => event.preventDefault());
+
+                dayDiv.addEventListener('drop', (event) => {
+                    event.preventDefault();
+                    const meal = JSON.parse(event.dataTransfer.getData('text'));
+                    dayDiv.appendChild(document.createTextNode(meal.meal));
+                    updateMealDate(meal.meal, day.date);
+                });
+            });
+        }
+
+        // Fetch meal data from Google Sheets and render tiles
+        fetch('https://script.googleusercontent.com/macros/echo?user_content_key=-uwJgiQTUkpepnKuxhcoMS4_aTBQhGIEhdjBgRD1smvEHKc-vFScPkAndmoSe3AMGNUIQm7Wg8-Dr3KXt1GRLYhWXRj7xtkhm5_BxDlH2jW0nuo2oDemN9CCS2h10ox_1xSncGQajx_ryfhECjZEnDrgjvNnz6CPfa3AghagQ9MsDS8ZJbxd8kDEXGysHqfyX12KcD5x1nN4eESltqXm8AJZyfNhhnAODVZcyEBagGMC_kJ_a7I47Nz9Jw9Md8uu&lib=M0MAk6vrQZdUz5Rwc4bZ0Nf_4U_TWG1yS') // Replace with your Apps Script URL
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(meal => {
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.draggable = true;
+                    tile.innerText = `${meal.meal} (${meal.prepTime} mins)`;
+                    document.getElementById('tiles').appendChild(tile);
+
+                    tile.addEventListener('dragstart', (event) => {
+                        event.dataTransfer.setData('text', JSON.stringify(meal));
+                    });
+                });
+            })
+            .catch(error => console.error('Error fetching meals:', error));
+
+        // Function to update the meal date in Google Sheets via POST request
+        function updateMealDate(meal, date) {
+            fetch('https://script.googleusercontent.com/macros/echo?user_content_key=-uwJgiQTUkpepnKuxhcoMS4_aTBQhGIEhdjBgRD1smvEHKc-vFScPkAndmoSe3AMGNUIQm7Wg8-Dr3KXt1GRLYhWXRj7xtkhm5_BxDlH2jW0nuo2oDemN9CCS2h10ox_1xSncGQajx_ryfhECjZEnDrgjvNnz6CPfa3AghagQ9MsDS8ZJbxd8kDEXGysHqfyX12KcD5x1nN4eESltqXm8AJZyfNhhnAODVZcyEBagGMC_kJ_a7I47Nz9Jw9Md8uu&lib=M0MAk6vrQZdUz5Rwc4bZ0Nf_4U_TWG1yS', { // Replace with your Apps Script URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ meal: meal, date: date })
+            })
+            .then(response => response.text())
+            .then(result => {
+                if (result.toLowerCase().includes('success')) {
+                    console.log(`Updated ${meal} with date ${date}`);
+                } else {
+                    console.error('Failed to update:', result);
+                }
+            })
+            .catch(error => console.error('Error updating meal date:', error));
+        }
+
+        // Initialize the calendar and meal tiles
+        renderCalendar();
+    </script>
+</body>
+</html>
